@@ -6,19 +6,7 @@
 struct issue_table{
   struct issue_table *up, *down;
   int issue;
-  int bit_set[16]; // has no more than 512 pages;
-  void unset_bit_flag(int ii){
-    int i=ii%32, j=ii/32;
-    int &m=bit_set[j];
-    int mask = (1<<i);
-    m &= ~mask;
-  }
-  void set_bit_flag(int ii){
-    int i=ii%32, j=ii/32;
-    int &m=bit_set[j];
-    int mask = (1<<i);
-    m |= ~mask;
-  }
+  bit_bool_set total_set;
 };
 
 struct isbn_table{
@@ -47,7 +35,7 @@ struct book_store{
         if(i_t->issue==s) break;
       }
       if(i_t&&i_t->issue==s) // found 
-        i_t->unset_bit_flag(p);
+        i_t->total_set.reset_bit(p);
     }
   }
 };

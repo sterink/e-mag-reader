@@ -14,7 +14,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-int create_channel_mb(){
+int create_channel_mc(){
   struct sockaddr_in localSock;
   struct ip_mreq group;
 
@@ -116,6 +116,28 @@ errout:
 }
 
 int create_channel_ui(){
+  const int qlen = 32;
+  int serv_port = 33333;
+  struct sockaddr_in my_addr;
+
+  my_addr.sin_family=AF_INET;
+  my_addr.sin_port=htons(serv_port);
+  my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  bzero(&(my_addr.sin_zero),8);
+
+  struct sockaddr *addr = (sockaddr *)&my_addr;
+
+  int fd = socket(addr->sa_family, SOCK_DGRAM, 0);
+  if(fd < 0) return(-1);
+  int err = bind(fd, addr, sizeof(sockaddr_in));
+  if(err < 0) {
+    err = errno;
+    goto errout;
+  }
+  return(fd);
+errout:
+  close(fd);
+  errno = err;
   return -1;
 }
 
@@ -126,40 +148,74 @@ void reaper(int sig){
   while(wait3(&status, WNOHANG, 0) >= 0) ;
 }
 
+// multi cast sock
+static int mc_sock = -1;
 int main(int argc, char **argv){
+  // multi-cast client port
+  struct sockaddr_in fsin;
+
+  bzero(&(fsin.sin_zero),8);
+  fsin.sin_family=AF_INET;
+  fsin.sin_port=htons(4321);
+  fsin.sin_addr.s_addr = inet_addr("226.1.1.1");
+  int mc_client = socket(AF_INET, SOCK_DGRAM, 0);
+
+
+  mc_sock = create_channel_mc();
   int ui_sock = create_channel_ui();
-  int mb_sock = create_channel_mb();
   int ms_sock = create_channel_ms();
 
   signal(SIGCHLD, reaper);
 
-  struct sockaddr peer_addr;
-  unsigned int peer_addr_len;
   while(true){
-    int ssock = accept(ms_sock, &peer_addr, &peer_addr_len);
-    if(ssock < 0){
-      printf("accept error\n");
-      exit(1);
+    fd_set readset;
+    FD_ZERO(&readset);
+    int fd1 = ui_sock;
+    int fd2 = ms_sock;
+    FD_SET(fd1, &readset);
+    FD_SET(fd2, &readset);
+    int maxfd = (fd1 > fd2) ? fd1 : fd2;
+    int nfds = select(maxfd+1, &readset, NULL, NULL, NULL);
+    if (FD_ISSET(fd1, &readset)){
+      char buf[256];
+      int ret = recv(fd1, buf, 256, MSG_DONTWAIT);
+      if(ret > 0) sendto(mc_client, buf, ret, 0, (struct sockaddr *)&fsin, sizeof(fsin));
     }
-    pid_t pid = fork();
-    switch(pid){
-      case 0: // child
-        printf("child begin \n");
-        close(ui_sock);
-        close(ms_sock);
-        void job_handle(int );
-        job_handle(ssock);
-        printf("child exit \n");
-        exit(0);
-      default: // parent
-        printf("child pid %d \n", pid);
-        close(ssock);
-        break;
-      case -1:
-        printf("fork error\n");
+    else if (FD_ISSET(fd2, &readset)){
+      struct sockaddr peer_addr;
+      unsigned int peer_addr_len = sizeof(peer_addr);
+      int ssock = accept(ms_sock, &peer_addr, &peer_addr_len);
+      if(ssock < 0){
+        printf("accept error %s\n", strerror(errno));
         exit(1);
+      }
+      pid_t pid = fork();
+      switch(pid){
+        case 0: // child
+          printf("child begin \n");
+          close(ui_sock);
+          close(ms_sock);
+          close(mc_client);
+          void job_handle(int );
+          job_handle(ssock);
+          printf("child exit \n");
+          exit(0);
+        default: // parent
+          printf("child pid %d \n", pid);
+          close(ssock);
+          break;
+        case -1:
+          printf("fork error\n");
+          exit(1);
+      }
     }
+    else if (nfds == -1) return -1;
   }
+  close(mc_client);
+  close(mc_sock);
+  close(ms_sock);
+  close(ui_sock);
+  return 0;
 }
 
 #include "xmt_book_stock_manager.h"
@@ -171,18 +227,35 @@ void job_handle(int fd){
   // duplicate book_stock info as starting point
   // main job
   while(true){
-    // poll latest book stock
-    //  // send if possible
-    //  remote_magazine_content content;
-    //  content.sendit();
-    int val = create_ebp_pkg(&pkg, fd);
-    printf("create_ebp_pkg return %d\n", val);
-    if(val==0) break;
-    //printf("create_ebp_pkg return val = %d\n", val);
-    if(pkg){
-      int val = pkg->doit(fd);
-      if(val==1) pkg=NULL; // req finished then reset
+    fd_set readset;
+    FD_ZERO(&readset);
+    int fd1 = fd;
+    int fd2 = mc_sock;
+    FD_SET(fd1, &readset);
+    FD_SET(fd2, &readset);
+    int maxfd = (fd1 > fd2) ? fd1 : fd2;
+    int nfds = select(maxfd+1, &readset, NULL, NULL, NULL);
+    if (FD_ISSET(fd1, &readset)){
+      // poll latest book stock
+      //  // send if possible
+      //  remote_magazine_content content;
+      //  content.sendit();
+      int val = create_ebp_pkg(&pkg, fd);
+      printf("create_ebp_pkg return %d\n", val);
+      if(val==0) break;
+      //printf("create_ebp_pkg return val = %d\n", val);
+      if(pkg){
+        int val = pkg->doit(fd);
+        if(val==1) pkg=NULL; // req finished then reset
+      }
     }
+    else if(FD_ISSET(fd2, &readset)){
+      char buf[256];
+      int ret = recvfrom(fd2, buf, 256, MSG_DONTWAIT, NULL, NULL);
+      if(ret > 0) printf("job handle: %s\n", buf);
+    }
+    else if (nfds == -1) return ;
+    stock_mg.try_push_content(fd);
   }
-  stock_mg.try_push_content(fd);
+  close(fd);
 }
