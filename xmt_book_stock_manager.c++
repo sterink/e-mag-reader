@@ -75,11 +75,11 @@ void book_stock_manager::handle_request(local_magazine_info *pkg){
   assert(pkg);
 
   int ii[] = {100, 110};
-  page_info_tag pp[] = {{1234, 163, 0}, {1234, 164, 0}};
+  mag_tag pp[] = {{1234, 163}, {1234, 164}};
   remote_magazine_content content;
-  content.set_type(MAGAZINE_MAIN_CONTENT);
+  content.set_type(MAGAZINE_FREE);
   for(int i=0;i<sizeof(ii)/sizeof(int);i++){
-    content.set_page(pp[i]);
+    content.set_tag(pp[i]);
     content.set_size(ii[i]);
     content.sendit(channel);
   }
@@ -88,8 +88,8 @@ void book_stock_manager::handle_request(local_magazine_info *pkg){
 void book_stock_manager::handle_request(local_magazine_request *pkg){
   assert(pkg);
   remote_magazine_content content;
-  content.set_page(pkg->page);
-  content.set_type(MAGAZINE_DETAIL);
+  content.set_tag(pkg->tag);
+  content.set_type(MAGAZINE_CHARGE);
   content.sendit(channel);
   //int isbn = pkg->isbn;
   //int issue = pkg->issue;

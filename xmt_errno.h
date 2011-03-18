@@ -3,5 +3,4 @@
 
 #define NOEXIST 1
 #define TIMEOUT 2
-#define NOACCESS 3
 #endif

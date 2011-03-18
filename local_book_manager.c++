@@ -7,15 +7,17 @@
 #include <pthread.h>
 #include "ebp_client.h"
 
-int ipc_fd_a = -1;
-int ipc_fd_b = -1;
-page_info_tag wanted_page;
-pthread_mutex_t page_mutex = PTHREAD_MUTEX_INITIALIZER;
+static mag_tag wanted_tag;
+
+int notify_fd = -1;
+
+int ipc_fd_f = -1;
+static int ipc_fd_b = -1;
 
 const char *data_file = "local_books_stock.db";
 const char *sql_create_table_ebooks_info = "create table if not exists ebooks_info (isbn integer primary key not null, title text);";
 
-const char *sql_create_table_ebooks_content = "create table if not exists ebooks_content (isbn integer not null, issue integer not null, cover text, page_numb integer, preview_set blob, total_set blob, primary key (isbn,issue));";
+const char *sql_create_table_ebooks_content = "create table if not exists ebooks_content (isbn integer not null, issue integer not null, page_numb integer, primary key (isbn,issue));";
 
 namespace{
 #include <unistd.h>
@@ -39,7 +41,8 @@ namespace{
     client_fd = socket(AF_INET, SOCK_STREAM, 0);
     serv_addr.sin_family=AF_INET;
     serv_addr.sin_port=htons(serv_port);
-    //serv_addr.sin_addr = *((struct in_addr *)host->h_addr);
+
+    //memcpy(&server.sin_addr, he->h_addr_list[0], he->h_length);
     inet_aton("192.168.1.155", &serv_addr.sin_addr);
 
     bzero(&(serv_addr.sin_zero),8);
@@ -99,13 +102,14 @@ namespace{
         // printf will trigger data flow into ipc_fd_b
         // retract msg, then resort to database
         int code = 0;
-        read(fd, &code, sizeof(code));
-        printf("msg from ipc (%d-%d) %d\n", ipc_fd_a, sock_fd, code);
+        read(fd, &code, sizeof(code)); wanted_tag.isbn = code;
+        read(fd, &code, sizeof(code)); wanted_tag.issue = code;
+
         // parse code
         if(sock_fd==-1) sock_fd = init_client();
 
         if(sock_fd!=-1){
-          local_req.set_page(wanted_page);
+          local_req.tag = wanted_tag;
           local_req.sendit(sock_fd);
         }
         // look for document given by [isbn, serial, pagenum]
@@ -130,7 +134,7 @@ namespace{
 local_book_manager::local_book_manager(){
   int fd[2];
   int r = socketpair(AF_LOCAL, SOCK_STREAM, 0, fd);
-  ipc_fd_a = fd[1];
+  ipc_fd_f = fd[1];
   ipc_fd_b = fd[0];
 
   // launch data_bk_agent thread
@@ -140,15 +144,15 @@ local_book_manager::local_book_manager(){
 
 int local_book_manager::notify_from_bk(remote_magazine_content *magazine){
   // verify wanted page
-  page_info_tag page;
-  magazine->get_page(page);
-  pthread_mutex_lock(&page_mutex);
   int response = 0;
-  if((page.isbn==wanted_page.isbn)&&(page.issue==wanted_page.issue)&&(page.num==wanted_page.num)) write(ipc_fd_b, &response, sizeof(response));
-  pthread_mutex_unlock(&page_mutex);
+  if(magazine->tag == wanted_tag) write(ipc_fd_b, &response, sizeof(response));
+  const char *str = "local book manager get content";
+  write(notify_fd, str, strlen(str));
 }
 
 int local_book_manager::notify_from_bk(remote_magazine_info *magazine){
+  const char *str = "local book manager get content";
+  write(notify_fd, str, strlen(str));
 }
 
 e_book *local_book_manager::get_book(int i, int s, int n){

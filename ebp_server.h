@@ -24,8 +24,7 @@ class local_sys_info:public ebook_pkg{
 };
 
 class local_magazine_info:public ebook_pkg{
-  pages_set_tag pool[512];
-  private:
+  mag_set pool[50];
   int item_num;
 
   public:
@@ -38,7 +37,7 @@ class local_magazine_info:public ebook_pkg{
 
 class local_magazine_request:public ebook_pkg{
   public:
-    page_info_tag page;
+    mag_tag tag;
   protected:
   int handle_header();
   public:
@@ -47,34 +46,33 @@ class local_magazine_request:public ebook_pkg{
 
 class remote_magazine_content:public ebook_pkg{
   int64_t f_size;
-  page_info_tag page;
   int type; // 0 -- cover; 1 -- content
   // <<< ---------- cover-related field
   int page_size; // total page number
-  bit_bool_set preview;
 
+  public:
+  mag_tag tag;
   public:
   remote_magazine_content();
   public:
-    int sendit(int fd);
+  int sendit(int fd);
 
   public:
-    void set_size(int t);
-    void set_type(int t);
-    void set_preview(bit_bool_set &p);
-    void set_page(page_info_tag &tag);
+  void set_size(int t);
+  void set_type(int t);
+  void set_tag(mag_tag &);
 };
 
 // magazine brand info
 class remote_magazine_info:public ebook_pkg{
   public:
-  int isbn;
-  char title[64]; // brand title
+    int isbn;
+    char title[64]; // brand title
 
   public:
-  remote_magazine_info();
+    remote_magazine_info();
   public:
-  int sendit(int fd);
+    int sendit(int fd);
 };
 
 int create_ebp_pkg(ebook_pkg **pkg, int fd);
