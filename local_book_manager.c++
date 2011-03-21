@@ -7,12 +7,10 @@
 #include <pthread.h>
 #include "ebp_client.h"
 
-static mag_tag wanted_tag;
-
-int notify_fd = -1;
+mag_tag wanted_tag;
 
 int ipc_fd_f = -1;
-static int ipc_fd_b = -1;
+int ipc_fd_b = -1;
 
 const char *data_file = "local_books_stock.db";
 const char *sql_create_table_ebooks_info = "create table if not exists ebooks_info (isbn integer primary key not null, title text);";
@@ -101,9 +99,8 @@ namespace{
       if(fd == ipc_fd_b){
         // printf will trigger data flow into ipc_fd_b
         // retract msg, then resort to database
-        int code = 0;
-        read(fd, &code, sizeof(code)); wanted_tag.isbn = code;
-        read(fd, &code, sizeof(code)); wanted_tag.issue = code;
+        mag_tag tag;
+        read(fd, &tag, sizeof(tag)); wanted_tag = tag;
 
         // parse code
         if(sock_fd==-1) sock_fd = init_client();
@@ -140,19 +137,6 @@ local_book_manager::local_book_manager(){
   // launch data_bk_agent thread
   static pthread_t ntid;
   int err = pthread_create(&ntid, NULL, data_bk_agent, NULL);
-}
-
-int local_book_manager::notify_from_bk(remote_magazine_content *magazine){
-  // verify wanted page
-  int response = 0;
-  if(magazine->tag == wanted_tag) write(ipc_fd_b, &response, sizeof(response));
-  const char *str = "local book manager get content";
-  write(notify_fd, str, strlen(str));
-}
-
-int local_book_manager::notify_from_bk(remote_magazine_info *magazine){
-  const char *str = "local book manager get content";
-  write(notify_fd, str, strlen(str));
 }
 
 e_book *local_book_manager::get_book(int i, int s, int n){

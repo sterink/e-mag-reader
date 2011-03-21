@@ -22,4 +22,17 @@ struct mag_set{
 enum {
   MAGAZINE_FREE, MAGAZINE_CHARGE
 };
+
+// book transfer sync
+struct book_sync_monitor{
+  mag_tag tag;
+  int fd[2];
+
+  private:
+  void lock();
+  void unlock();
+  public:
+  void init();
+};
+
 #endif

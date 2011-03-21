@@ -62,6 +62,7 @@ class remote_magazine_content:public ebook_pkg{
 
   private:
   void update_db();
+  void notify();
 };
 
 // magazine brand info
@@ -74,6 +75,7 @@ class remote_magazine_info:public ebook_pkg{
   int handle_header();
   private:
   void update_db();
+  void notify();
 };
 
 // return -1 if error

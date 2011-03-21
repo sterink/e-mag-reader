@@ -183,6 +183,6 @@ void job_handle(int fd){
       int val = pkg->doit(fd);
       if(val==1) pkg=NULL; // req finished then reset
     }
+    stock_mg.try_push_content(fd);
   }
-  stock_mg.try_push_content(fd);
 }

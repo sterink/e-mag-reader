@@ -40,9 +40,10 @@ int e_book::go_absolute_page(int index, char name[]){
   // test if available
   ret = access(name, R_OK);
   if(ret!=0){
+    int var[2];
+    var[0] = isbn, var[1] = issue;
     // help via proxy
-    write(ipc_fd_f, &isbn, sizeof(isbn));
-    write(ipc_fd_f, &issue, sizeof(issue));
+    write(ipc_fd_f, var, sizeof(var));
 
     fd_set readset;
     FD_ZERO(&readset);
@@ -51,10 +52,8 @@ int e_book::go_absolute_page(int index, char name[]){
     timeval timeout={8,0};
     int nfds = select(maxfd+1, &readset, NULL, NULL, &timeout);
     if(nfds>0){
-      int var1, var2;
-      read(ipc_fd_f, &var1, sizeof(var1));
-      read(ipc_fd_f, &var2, sizeof(var2));
-      if((var1==isbn)&&(var2==issue)) ret = 0;
+      read(ipc_fd_f, var, sizeof(var));
+      if((var[0]==isbn)&&(var[1]==issue)) ret = 0;
 
     }
     else ret = -TIMEOUT;

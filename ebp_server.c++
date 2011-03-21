@@ -33,7 +33,10 @@ static int buffer_header_pkg(int fd){
     code = meta_tag[0];
     size = meta_tag[1];
     ret=recv(fd, &buff, size, MSG_WAITALL);
-    if(ret != size) code = -1;
+    if(ret != size){
+      printf("recv data error\n");
+      code = -1;
+    }
   }
   return code;
 }
@@ -91,7 +94,6 @@ int ebook_pkg::sendit(int fd){
   if(fd<0) return -1;
   write(fd, &code, sizeof(code));
   write(fd, &h_size, sizeof(h_size));
-  printf("code size (%d %d)", code, h_size);
   return -1;
 }
 
@@ -182,8 +184,8 @@ void remote_magazine_content::set_type(int t){
   type = t;
 }
 
-void remote_magazine_content::set_tag(mag_tag &tag){
-  tag = tag;
+void remote_magazine_content::set_tag(mag_tag &t){
+  tag = t;
 }
 
 remote_magazine_info::remote_magazine_info(){

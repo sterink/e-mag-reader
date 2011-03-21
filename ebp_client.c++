@@ -17,8 +17,8 @@ extern const char *sql_create_table_ebooks_info;
 extern const char *sql_create_table_ebooks_content;
 extern int ipc_fd_b;
 
-extern mag_tag wanted_mag;
-extern pthread_mutex_t page_mutex;
+extern int notify_fd;
+extern mag_tag wanted_tag;
 
 // database file path
 extern const char *data_file;
@@ -65,8 +65,11 @@ static int buffer_header_pkg(int fd){
         ret=recv(fd, p, remain, MSG_DONTWAIT);
         if(ret==0) goto out;  // socket shutdown 
         else if(ret<0){
-          printf("head pkg error %s\n", strerror(errno));
-          goto out;
+          if(errno==EAGAIN) goto out; // time out
+          else{
+            printf("head pkg error %s\n", strerror(errno));
+            goto out;
+          }
         }
         else remain -= ret;
       }
@@ -90,9 +93,9 @@ int create_ebp_pkg(ebook_pkg **ppp, int fd){
 
   ebook_pkg *pkg = NULL;
 
-  *ppp = pkg;
+  *ppp = NULL;
   int code = buffer_header_pkg(fd);
-  if(code <= 0) return 0; // decide if channel broken
+  if(code <= 0) return code; // decide if channel broken
   switch(code){
     case OP_LOCAL_SYS_INFO:
       pkg = &l_s_i;
@@ -186,7 +189,8 @@ int local_magazine_info::sendit(int fd){
 
 void local_magazine_info::retrieve_snapshot(){
   mag_set cur = {-1, 0, 0};
-  item_num = 0;
+  item_num = -1;
+  int pre_issue = -1;
   // retrieve magazine snapshot
   sqlite3 * db;
   sqlite3_open(data_file, &db);
@@ -196,22 +200,25 @@ void local_magazine_info::retrieve_snapshot(){
   const char *sql = "select isbn, issue from ebooks_content order by isbn asc, issue asc;";
   sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
-  int cur_isbn = -1;
   while(sqlite3_step (stmt)==SQLITE_ROW){
     int isbn, issue;
     isbn = sqlite3_column_int(stmt, 0);
     issue = sqlite3_column_int(stmt, 1);
     if(isbn!=cur.isbn){
-      if(item_num>0) pool[item_num++] = cur;
-      cur.isbn = isbn;
+      if(item_num==-1) item_num++;
+      else{
+        cur.max_issue = pre_issue; pool[item_num++] = cur;
+      }
+      cur.isbn = isbn; cur.min_issue = issue;
     }
-    if(issue<cur.min_issue) cur.min_issue = issue; 
-    if(issue>cur.max_issue) cur.max_issue = issue; 
-
+    pre_issue = issue;
   }
   sqlite3_finalize(stmt);
 
   sqlite3_close(db);
+  if(item_num>=0){
+    cur.max_issue = pre_issue; pool[item_num++] = cur;
+  }
 }
 
 int remote_magazine_content::handle_header(){
@@ -241,32 +248,44 @@ int remote_magazine_content::doit(int fd){
     int size = remain>max_s?max_s:remain;
     int n=recv(fd, buff, size, MSG_DONTWAIT);
     if(n>0)  write(fildes, buff, n);
-    else if(n==EAGAIN) return 0; // time out
-    else if(n<=0) return -1;
+    else if(n==0) return -1; // shutdown elegantly
+    else{
+      if(errno==EAGAIN) return 0;
+      else{
+        printf("something is wrong %d-%d-%s\n", n,errno,strerror(errno));
+        return -1;
+      }
+    }
     remain -= n;
     if(remain == 0){
       // decomp
-      char path[1024];
-      getcwd(path, 1024);
       int status;
       sprintf(buff, "%d", tag.isbn);
       status = mkdir(buff, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-      chdir(buff);
+      status = chdir(buff);
 
-      my_zip_extract(tmp_name, NULL);
-      unlink(tmp_name);
+      sprintf(buff, "../%s", tmp_name);
+      my_zip_extract(buff, NULL);
+      unlink(buff);
 
       // restore path
-      chdir(path);
+      status = chdir("..");
 
       close(save_fd); save_fd = -1;
 
-      local_book_manager::instance().notify_from_bk(this);
       update_db();
+      notify();
       return 1;
     }
   }
   return 0;
+}
+
+void remote_magazine_content::notify(){
+  // verify wanted page
+  if(tag == wanted_tag) write(ipc_fd_b, &wanted_tag, sizeof(wanted_tag));
+  const char *str = "local book manager content\n";
+  write(notify_fd, str, strlen(str));
 }
 
 void remote_magazine_content::update_db(){
@@ -274,7 +293,7 @@ void remote_magazine_content::update_db(){
   isbn=tag.isbn, issue=tag.issue;
   numb=page_size;
   sqlite3 * db = NULL;
-  if(type = MAGAZINE_FREE){
+  if(type == MAGAZINE_FREE){
     sqlite3_open(data_file, &db);
     sqlite3_stmt * stmt;
 
@@ -301,7 +320,13 @@ int remote_magazine_info::handle_header(){
 
 int remote_magazine_info::doit(int fd){
   update_db();
+  notify();
   return 1;
+}
+
+void remote_magazine_info::notify(){
+  const char *str = "local book manager info\n";
+  write(notify_fd, str, strlen(str));
 }
 
 void  remote_magazine_info::update_db(){
