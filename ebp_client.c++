@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sqlite3.h>
+#include "packet_header.h"
 #include "xmt_version.h"
 #include "xmt_zlib.h"
 #include "local_book_manager.h"
@@ -285,7 +286,13 @@ void remote_magazine_content::notify(){
   // verify wanted page
   if(tag == wanted_tag) write(ipc_fd_b, &wanted_tag, sizeof(wanted_tag));
   const char *str = "local book manager content\n";
-  write(notify_fd, str, strlen(str));
+  uint32_t size = 0;
+  size = sizeof(PacketHeader) + strlen(str);
+  PacketTest test;
+  test.fHeader.fType = kPacketType_R_M_I;
+  test.fHeader.fSize = size;
+  strcpy(test.fMessage, str);
+  write(notify_fd, &test, size);
 }
 
 void remote_magazine_content::update_db(){
@@ -326,7 +333,13 @@ int remote_magazine_info::doit(int fd){
 
 void remote_magazine_info::notify(){
   const char *str = "local book manager info\n";
-  write(notify_fd, str, strlen(str));
+  uint32_t size = 0;
+  size = sizeof(PacketHeader) + strlen(str);
+  PacketTest test;
+  test.fHeader.fType = kPacketType_R_M_I;
+  test.fHeader.fSize = size;
+  strcpy(test.fMessage, str);
+  write(notify_fd, &test, size);
 }
 
 void  remote_magazine_info::update_db(){
