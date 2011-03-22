@@ -17,12 +17,12 @@ e_book::e_book(int i, int s, int n){
 }
 
 int e_book::get_main_cover(char name[]){
-  sprintf(name, "%d_%d_%d.jpg", isbn, issue, pos); // cover page
+  sprintf(name, "%d/%d/main.jpg", isbn, issue);
   return 1;
 }
 
 int e_book::get_history_page(char name[]){
-  sprintf(name, "%d_%d_%d.html", isbn, issue, pos); // bookmark page
+  sprintf(name, "%d/%d/%d.html", isbn, issue, pos); // bookmark page
   return 1;
 }
 
