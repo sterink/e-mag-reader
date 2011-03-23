@@ -26,8 +26,8 @@ static int init_client(){
   serv_addr.sin_port=htons(serv_port);
 
   //memcpy(&server.sin_addr, he->h_addr_list[0], he->h_length);
-  //inet_aton("218.240.36.19", &serv_addr.sin_addr);
-  inet_aton("192.168.1.155", &serv_addr.sin_addr);
+  inet_aton("218.240.36.19", &serv_addr.sin_addr);
+  //inet_aton("192.168.1.155", &serv_addr.sin_addr);
 
   bzero(&(serv_addr.sin_zero),8);
   int val = connect(client_fd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr));
