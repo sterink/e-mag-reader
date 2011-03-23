@@ -7,51 +7,24 @@ enum{
   OP_INTER_TRANSFER_REQUEST, OP_LOCAL_SYS_INFO
 };
 
-// bit vector used 
-struct bit_bool_set{
-  int data[8];
-  bit_bool_set(){
-    for(int i=0;i<8;i++) data[i]=0;
-  }
-
-  void set_bit(int pos){
-    int i=pos%32, j=pos/32;
-    int &m=data[j];
-    int mask = (1<<i);
-    m |= mask;
-  }
-  void reset_bit(int pos){
-    int i=pos%32, j=pos/32;
-    int &m=data[j];
-    int mask = (1<<i);
-    m &= ~mask;
-  }
-  void flip_bit(int pos);
-  bool operator[] (int pos ) const{
-    int i=pos%32, j=pos/32;
-    int m=data[j];
-    int mask = (1<<i);
-    m &= mask;
-    return(m!=0);
-  }
-  void set_data(const void *dd){
-    if(!dd) return;
-    int *p = (int *)dd;
-    for(int i=0;i<8;i++) data[i] = p[i];
-  }
-};
-
 // pages info tag
-struct pages_set_tag{
+struct mag_tag{
   int isbn, issue;
-  bit_bool_set total_set;
+  bool operator ==(const mag_tag &t){
+    return (t.isbn==isbn)&&(t.issue==issue);
+  }
 };
 
-struct page_info_tag{
-  int isbn, issue, num;
+struct mag_set{
+  int isbn, min_issue, max_issue;
 };
 
 enum {
-  MAGAZINE_MAIN_CONTENT, MAGAZINE_DETAIL
+  MAGAZINE_FREE, MAGAZINE_CHARGE
 };
+
+// book transfer sync
+bool wait_for_book(int isbn, int issue);
+void wake_for_book(int isbn, int issue);
+
 #endif

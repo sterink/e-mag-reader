@@ -3,22 +3,16 @@
 
 #include "xmt_book.h"
 
-class remote_magazine_content;
-class remote_magazine_info;
-
 class local_book_manager{
   private:
     local_book_manager();
 
   public:
-    static local_book_manager &instance(){
+    static local_book_manager *instance(){
       static local_book_manager _instance;
-      return _instance;
+      return &_instance;
     }
-  public: //callback 
-    int notify_from_bk(remote_magazine_content *);
-    int notify_from_bk(remote_magazine_info *);
-  public:
+public:
     e_book *get_book(int, int, int);
     // return value
     // -1 mean no more books

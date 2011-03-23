@@ -64,17 +64,6 @@ static void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_dat
   utime(filename,&ut);
 }
 
-
-/* mymkdir and change_file_date are not 100 % portable
-   As I don't know well Unix, I wait feedback for the unix portion */
-
-static int mymkdir(const char* dirname)
-{
-  int ret=0;
-  ret = mkdir (dirname,0775);
-  return ret;
-}
-
 static int makedir (const char *newdir)
 {
   char *buffer ;
@@ -95,7 +84,7 @@ static int makedir (const char *newdir)
   if (buffer[len-1] == '/') {
     buffer[len-1] = '\0';
   }
-  if (mymkdir(buffer) == 0)
+  if (mkdir(buffer, 0775) == 0)
   {
     free(buffer);
     return 1;
@@ -110,7 +99,7 @@ static int makedir (const char *newdir)
       p++;
     hold = *p;
     *p = 0;
-    if ((mymkdir(buffer) == -1) && (errno == ENOENT))
+    if ((mkdir(buffer, 0775) == -1) && (errno == ENOENT))
     {
       printf("couldn't create directory %s\n",buffer);
       free(buffer);
@@ -165,7 +154,7 @@ static int do_extract_currentfile(unzFile uf, const int* popt_extract_without_pa
     if ((*popt_extract_without_path)==0)
     {
       printf("creating directory: %s\n",filename_inzip);
-      mymkdir(filename_inzip);
+      mkdir(filename_inzip, 0775);
     }
   }
   else

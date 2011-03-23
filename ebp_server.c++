@@ -32,8 +32,13 @@ static int buffer_header_pkg(int fd){
   if(ret==8) {
     code = meta_tag[0];
     size = meta_tag[1];
-    ret=recv(fd, &buff, size, MSG_WAITALL);
-    if(ret != size) code = -1;
+    if(size > 0){
+      ret=recv(fd, &buff, size, MSG_WAITALL);
+      if(ret != size){
+        printf("recv data error\n");
+        code = -1;
+      }
+    }
   }
   return code;
 }
@@ -50,7 +55,8 @@ int create_ebp_pkg(ebook_pkg **ppp, int fd){
 
   *ppp = pkg;
   int code = buffer_header_pkg(fd);
-  if(code <= 0) return 0; // decide if channel broken
+  if(code == 0) return 0; // decide if channel broken
+  else if(code < 0) return -1;
   switch(code){
     case OP_LOCAL_SYS_INFO:
       pkg = &l_s_i;
@@ -75,7 +81,7 @@ int create_ebp_pkg(ebook_pkg **ppp, int fd){
   pkg->h_size = meta_tag[1];
   pkg->handle_header();
   *ppp = pkg;
-  return code>0;
+  return 1;
 }
 
 // return value
@@ -91,7 +97,6 @@ int ebook_pkg::sendit(int fd){
   if(fd<0) return -1;
   write(fd, &code, sizeof(code));
   write(fd, &h_size, sizeof(h_size));
-  printf("code size (%d %d)", code, h_size);
   return -1;
 }
 
@@ -116,8 +121,8 @@ int local_sys_info::handle_header(){
 int local_magazine_request::handle_header(){
   printf("local_magazine_request :");
   int offset = 0;
-  {page_info_tag *p = (page_info_tag *)(buff+offset); page = p[0]; offset+=sizeof(int);}
-  printf("%d %d %d \n", page.isbn, page.issue, page.num);
+  {mag_tag *p = (mag_tag *)(buff+offset); tag = p[0]; offset+=sizeof(mag_tag);}
+  printf("local request %d %d \n", tag.isbn, tag.issue);
   stock_mg.handle_request(this);
 }
 
@@ -127,7 +132,7 @@ int local_magazine_request::doit(int fd){
 
 int local_magazine_info::handle_header(){
   printf("local_magazine_info \n");
-  item_num = h_size/sizeof(struct pages_set_tag);
+  item_num = h_size/sizeof(struct mag_set);
   memcpy(pool, buff, h_size);
   stock_mg.handle_request(this);
 }
@@ -143,29 +148,28 @@ remote_magazine_content::remote_magazine_content(){
 
 int remote_magazine_content::sendit(int fd){
   // calculate head section size
-  h_size = sizeof(f_size) + sizeof(type) + sizeof(page);
-  if(type==MAGAZINE_MAIN_CONTENT) h_size += sizeof(preview) + sizeof(page_size);
+  h_size = sizeof(f_size) + sizeof(type) + sizeof(tag);
+  if(type==MAGAZINE_FREE) h_size += sizeof(page_size);
 
   ebook_pkg::sendit(fd);
 
-  int isbn, issue, num;
-  isbn = page.isbn; issue = page.issue; num = page.num;
-  f_size = 0;
+  int isbn, issue;
+  isbn = tag.isbn; issue = tag.issue;
   // coin filename
   char name[64];
-  sprintf(name, "%d_%d_%d.zip", isbn, issue, num);
+  sprintf(name, "%d_%d_%d.zip", isbn, issue, type);
 
   int ret;
+  f_size = 0;
   struct stat sb;
   ret = stat(name, &sb);
   if(ret==0) f_size = sb.st_size;
 
   ret = write(fd, &f_size, sizeof(f_size));
   ret = write(fd, &type, sizeof(type));
-  ret = write(fd, &page, sizeof(page));
-  if(type==MAGAZINE_MAIN_CONTENT){
+  ret = write(fd, &tag, sizeof(tag));
+  if(type==MAGAZINE_FREE){
     ret = write(fd, &page_size, sizeof(page_size));
-    ret = write(fd, &preview, sizeof(preview));
   }
 
   int infile = open(name, O_RDONLY, 0);
@@ -173,10 +177,6 @@ int remote_magazine_content::sendit(int fd){
   char line[1024];
   while((cnt = read(infile, line, 1024))>0) ret = write(fd, line, cnt);
   close(infile);
-}
-
-void remote_magazine_content::set_preview(bit_bool_set &m){
-  preview = m;
 }
 
 void remote_magazine_content::set_size(int t){
@@ -187,8 +187,8 @@ void remote_magazine_content::set_type(int t){
   type = t;
 }
 
-void remote_magazine_content::set_page(page_info_tag &tag){
-  page = tag;
+void remote_magazine_content::set_tag(mag_tag &t){
+  tag = t;
 }
 
 remote_magazine_info::remote_magazine_info(){

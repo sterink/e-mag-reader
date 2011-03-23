@@ -1,7 +1,7 @@
 CC = g++
 DEPS = 
-C_OBJ=xmt_version.o xmt_book.o ebp_client.o local_book_manager.o xmt_zlib.o ioapi.o unzip.o local_book_manager.o
-S_OBJ=xmt_version.o ebp_server.o xmt_book_stock_manager.o
+C_OBJ=xmt_book.o ebp_client.o local_book_manager.o xmt_zlib.o ioapi.o unzip.o local_book_manager.o xmt_engine.o xmt_util.o
+S_OBJ=ebp_server.o xmt_book_stock_manager.o
 CFLAGS=`pkg-config --cflags gtk+-2.0`
 
 all:ebook_reader ebook_server
