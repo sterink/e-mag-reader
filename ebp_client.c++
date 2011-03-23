@@ -16,7 +16,6 @@
 extern const char *sql_create_table_ebooks_info;
 
 extern const char *sql_create_table_ebooks_content;
-extern int ipc_fd_b;
 
 extern int notify_fd;
 extern mag_tag wanted_tag;
@@ -220,6 +219,7 @@ void local_magazine_info::retrieve_snapshot(){
   if(item_num>=0){
     cur.max_issue = pre_issue; pool[item_num++] = cur;
   }
+  else item_num = 0;
 }
 
 int remote_magazine_content::handle_header(){
@@ -284,7 +284,8 @@ int remote_magazine_content::doit(int fd){
 
 void remote_magazine_content::notify(){
   // verify wanted page
-  if(tag == wanted_tag) write(ipc_fd_b, &wanted_tag, sizeof(wanted_tag));
+  if(type == MAGAZINE_CHARGE) wake_for_book(tag.isbn, tag.issue);
+
   const char *str = "local book manager content\n";
   uint32_t size = 0;
   size = sizeof(PacketHeader) + strlen(str);

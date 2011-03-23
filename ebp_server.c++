@@ -32,10 +32,12 @@ static int buffer_header_pkg(int fd){
   if(ret==8) {
     code = meta_tag[0];
     size = meta_tag[1];
-    ret=recv(fd, &buff, size, MSG_WAITALL);
-    if(ret != size){
-      printf("recv data error\n");
-      code = -1;
+    if(size > 0){
+      ret=recv(fd, &buff, size, MSG_WAITALL);
+      if(ret != size){
+        printf("recv data error\n");
+        code = -1;
+      }
     }
   }
   return code;
@@ -53,7 +55,8 @@ int create_ebp_pkg(ebook_pkg **ppp, int fd){
 
   *ppp = pkg;
   int code = buffer_header_pkg(fd);
-  if(code <= 0) return 0; // decide if channel broken
+  if(code == 0) return 0; // decide if channel broken
+  else if(code < 0) return -1;
   switch(code){
     case OP_LOCAL_SYS_INFO:
       pkg = &l_s_i;
@@ -78,7 +81,7 @@ int create_ebp_pkg(ebook_pkg **ppp, int fd){
   pkg->h_size = meta_tag[1];
   pkg->handle_header();
   *ppp = pkg;
-  return code>0;
+  return 1;
 }
 
 // return value

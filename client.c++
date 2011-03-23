@@ -57,7 +57,7 @@ int main(int argc, char **argv){
   int ii;
   char name[64];
   while(single_instance->read_book_catalogue(name, ii)!=-1){
-      printf("%s - %d\n", name, ii);
+      printf("%s - %d~~\n", name, ii);
       bb[index++] = ii;
   }
   int jj, num;
@@ -65,7 +65,7 @@ int main(int argc, char **argv){
   for(int i=0;i<index;i++){
     ii = bb[i];
     while(single_instance->read_book_shelf(more, ii, jj, num)!=-1){
-      printf("%s - %d %d %d\n", more, ii, jj, num);
+      printf("^^^%s - %d %d %d\n", more, ii, jj, num);
     }
   }
   e_book *book= single_instance->get_book(1234,163,100);

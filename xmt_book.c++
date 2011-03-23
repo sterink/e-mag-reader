@@ -8,8 +8,6 @@
 #include <assert.h>
 #include <pthread.h>
 
-extern int ipc_fd_f;
-
 e_book::e_book(int i, int s, int n){
   isbn = i, issue = s, page_numb = n;
   // retrieve saved page last time
@@ -40,23 +38,10 @@ int e_book::go_absolute_page(int index, char name[]){
   // test if available
   ret = access(name, R_OK);
   if(ret!=0){
-    int var[2];
-    var[0] = isbn, var[1] = issue;
-    // help via proxy
-    write(ipc_fd_f, var, sizeof(var));
 
-    fd_set readset;
-    FD_ZERO(&readset);
-    FD_SET(ipc_fd_f, &readset);
-    int maxfd = ipc_fd_f;
-    timeval timeout={8,0};
-    int nfds = select(maxfd+1, &readset, NULL, NULL, &timeout);
-    if(nfds>0){
-      read(ipc_fd_f, var, sizeof(var));
-      if((var[0]==isbn)&&(var[1]==issue)) ret = 0;
-
-    }
-    else ret = -TIMEOUT;
+    bool val = wait_for_book(isbn, issue);
+    if(!val) ret = -TIMEOUT;
+    else ret = 0;
     //printf("time out \n");
   }
   if(ret==0) pos = index;

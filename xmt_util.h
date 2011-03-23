@@ -24,15 +24,7 @@ enum {
 };
 
 // book transfer sync
-struct book_sync_monitor{
-  mag_tag tag;
-  int fd[2];
-
-  private:
-  void lock();
-  void unlock();
-  public:
-  void init();
-};
+bool wait_for_book(int isbn, int issue);
+void wake_for_book(int isbn, int issue);
 
 #endif
