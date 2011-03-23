@@ -242,8 +242,7 @@ void job_handle(int fd){
       //  content.sendit();
       int val = create_ebp_pkg(&pkg, fd);
       printf("create_ebp_pkg return %d\n", val);
-      if(val==0) break;
-      //printf("create_ebp_pkg return val = %d\n", val);
+      if(val<=0) break;
       if(pkg){
         int val = pkg->doit(fd);
         if(val==1) pkg=NULL; // req finished then reset

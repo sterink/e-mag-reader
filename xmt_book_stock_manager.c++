@@ -3,16 +3,10 @@
 #include <assert.h>
 #include <string.h>
 
-struct issue_table{
-  struct issue_table *up, *down;
-  int issue;
-  bit_bool_set total_set;
-};
-
 struct isbn_table{
   struct isbn_table *next, *prev;
   int isbn;
-  issue_table *issue_set;
+  int max_issue, min_issue;
 };
 
 struct book_store{
@@ -23,21 +17,6 @@ struct book_store{
   //init(); // initialize from database
 
   void get_available_task();
-
-  void deselect_isbn_info(int i, int s, int p){
-    isbn_table *store = NULL;
-    for(store=bk_store;store;store=store->next){
-      if(store->isbn == i) break;
-    }
-    if(store && store->isbn == i){ // found, then rule out the page num
-      issue_table *i_t = NULL;
-      for(i_t=store->issue_set;i_t;i_t=i_t->down){
-        if(i_t->issue==s) break;
-      }
-      if(i_t&&i_t->issue==s) // found 
-        i_t->total_set.reset_bit(p);
-    }
-  }
 };
 
 book_stock_manager::book_stock_manager(){}
