@@ -184,4 +184,5 @@ void job_handle(int fd){
     }
     stock_mg.try_push_content(fd);
   }
+  close(fd);
 }
